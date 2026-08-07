@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Allow: /blog
+Allow: /portfolio/demo
+Disallow: /app/
+Disallow: /admin/
+Disallow: /client/
+Disallow: /api/
+
+Sitemap: https://noirframe.app/sitemap.xml
