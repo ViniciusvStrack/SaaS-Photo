@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 
 // ============ TYPES ============
 interface ApiResponse<T> {
@@ -17,15 +17,6 @@ interface ApiResponse<T> {
   };
 }
 
-interface UseApiOptions {
-  enabled?: boolean;
-  revalidateOnFocus?: boolean;
-  revalidateOnReconnect?: boolean;
-  refreshInterval?: number;
-  retryCount?: number;
-  retryDelay?: number;
-}
-
 interface UseApiReturn<T> {
   data: T | null;
   loading: boolean;
@@ -34,48 +25,33 @@ interface UseApiReturn<T> {
   mutate: (data: T | null) => void;
 }
 
-interface UseMutationReturn<TData, TResponse> {
-  mutate: (data?: TData) => Promise<{ success: boolean; data?: TResponse; error?: string }>;
-  loading: boolean;
-  error: string | null;
-  reset: () => void;
+interface ApiOptions {
+  enabled?: boolean;
+  cacheTTL?: number;
+  dedupe?: boolean;
 }
 
-interface UseUploadReturn {
-  upload: (file: File, onProgress?: (percent: number) => void) => Promise<{ success: boolean; url?: string; error?: string }>;
-  loading: boolean;
-  progress: number;
-  error: string | null;
-}
+// ============ OPTIMIZED CACHE (in-memory with TTL) ============
+const cache = new Map<string, { data: unknown; expiresAt: number }>();
+const inflight = new Map<string, Promise<unknown>>();
 
-// ============ CACHE ============
-const cache = new Map<string, { data: unknown; timestamp: number; expiresAt: number }>();
-const pendingRequests = new Map<string, Promise<unknown>>();
-const DEFAULT_CACHE_TTL = 30000; // 30 seconds
+const DEFAULT_TTL = 60000; // 1 min default cache
 
 export function getCached<T>(key: string): T | null {
-  const cached = cache.get(key);
-  if (cached && Date.now() < cached.expiresAt) {
-    return cached.data as T;
-  }
-  cache.delete(key);
+  const entry = cache.get(key);
+  if (entry && Date.now() < entry.expiresAt) return entry.data as T;
+  if (entry) cache.delete(key);
   return null;
 }
 
-export function setCached<T>(key: string, data: T, ttlMs: number = DEFAULT_CACHE_TTL): void {
-  cache.set(key, {
-    data,
-    timestamp: Date.now(),
-    expiresAt: Date.now() + ttlMs,
-  });
+export function setCached<T>(key: string, data: T, ttl = DEFAULT_TTL): void {
+  cache.set(key, { data, expiresAt: Date.now() + ttl });
 }
 
-export function invalidateCache(urlPattern: string): void {
-  const regex = new RegExp(urlPattern.replace(/\*/g, ".*"));
+export function invalidateCache(pattern: string): void {
+  const regex = new RegExp(pattern.replace(/\*/g, ".*"));
   for (const key of cache.keys()) {
-    if (regex.test(key)) {
-      cache.delete(key);
-    }
+    if (regex.test(key)) cache.delete(key);
   }
 }
 
@@ -83,302 +59,151 @@ export function clearCache(): void {
   cache.clear();
 }
 
-// ============ FETCH WITH RETRY ============
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  retries: number = 3,
-  delay: number = 1000
-): Promise<Response> {
-  let lastError: Error | null = null;
-  
-  for (let i = 0; i < retries; i++) {
+// ============ SMART FETCH (with in-flight dedup) ============
+async function smartFetch<T>(url: string, signal?: AbortSignal): Promise<T> {
+  // Return in-flight request if duplicate
+  const pending = inflight.get(url);
+  if (pending) return pending as Promise<T>;
+
+  const promise = (async () => {
     try {
-      const response = await fetch(url, options);
-      
-      // Don't retry on client errors (4xx) except 429
-      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-        return response;
-      }
-      
-      // Retry on server errors (5xx) or rate limit (429)
-      if (response.status >= 500 || response.status === 429) {
-        if (i < retries - 1) {
-          const retryAfter = response.headers.get("Retry-After");
-          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : delay * Math.pow(2, i);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-          continue;
+      const res = await fetch(url, {
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        signal,
+      });
+
+      const json: ApiResponse<T> = await res.json();
+
+      if (!res.ok || !json.success) {
+        if (res.status === 401) {
+          if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+            window.location.href = "/login?expired=1";
+          }
         }
+        throw new Error(json.error || `HTTP ${res.status}`);
       }
-      
-      return response;
-    } catch (error) {
-      lastError = error as Error;
-      if (i < retries - 1) {
-        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
-      }
+
+      return json.data as T;
+    } finally {
+      inflight.delete(url);
     }
-  }
-  
-  throw lastError || new Error("Request failed after retries");
+  })();
+
+  inflight.set(url, promise);
+  return promise;
 }
 
-// ============ ERROR HANDLING ============
-function handleErrorResponse(status: number, errorMessage?: string): string {
-  switch (status) {
-    case 401:
-      // Redirect to login on auth error
-      if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
-        window.location.href = "/login?expired=1";
-      }
-      return "Sessão expirada. Faça login novamente.";
-    case 403:
-      return "Você não tem permissão para esta ação.";
-    case 404:
-      return "Recurso não encontrado.";
-    case 422:
-      return errorMessage || "Dados inválidos. Verifique os campos.";
-    case 429:
-      return "Muitas requisições. Aguarde um momento.";
-    case 500:
-      return "Erro interno. Tente novamente mais tarde.";
-    default:
-      return errorMessage || "Ocorreu um erro. Tente novamente.";
-  }
-}
-
-// ============ USE API HOOK (GET) ============
-export function useApi<T>(
-  url: string | null,
-  options: UseApiOptions = {}
-): UseApiReturn<T> {
-  const {
-    enabled = true,
-    revalidateOnFocus = false,
-    revalidateOnReconnect = true,
-    refreshInterval,
-    retryCount = 3,
-    retryDelay = 1000,
-  } = options;
-
-  const [data, setData] = useState<T | null>(() => {
-    if (url) {
-      return getCached<T>(url);
-    }
-    return null;
-  });
-  const [loading, setLoading] = useState<boolean>(!data && enabled && !!url);
+// ============ USE API HOOK (GET) — Optimized ============
+export function useApi<T>(url: string | null, options?: ApiOptions): UseApiReturn<T> {
+  const { enabled = true, cacheTTL = DEFAULT_TTL } = options || {};
+  const [data, setData] = useState<T | null>(() => (url ? getCached<T>(url) : null));
+  const [loading, setLoading] = useState(!data && enabled && !!url);
   const [error, setError] = useState<string | null>(null);
-  
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const abortRef = useRef<AbortController | undefined>(undefined);
   const mountedRef = useRef(true);
+  const urlRef = useRef(url);
+  urlRef.current = url;
 
-  const fetchData = useCallback(async () => {
-    if (!url || !enabled) return;
+  const fetchData = useCallback(async (skipCache = false) => {
+    const currentUrl = urlRef.current;
+    if (!currentUrl || !enabled) return;
 
-    // Check cache first
-    const cached = getCached<T>(url);
-    if (cached) {
-      setData(cached);
-      setLoading(false);
-      return;
-    }
-
-    // Check for pending request (deduplication)
-    const pending = pendingRequests.get(url);
-    if (pending) {
-      try {
-        const result = await pending;
-        if (mountedRef.current) {
-          setData(result as T);
-          setLoading(false);
-        }
-      } catch (err) {
-        if (mountedRef.current) {
-          setError((err as Error).message);
-          setLoading(false);
-        }
+    // Check cache
+    if (!skipCache) {
+      const cached = getCached<T>(currentUrl);
+      if (cached) {
+        setData(cached);
+        setLoading(false);
+        return;
       }
-      return;
     }
 
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
+    // Abort previous
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
 
     setLoading(true);
     setError(null);
 
-    const requestPromise = (async () => {
-      try {
-        const response = await fetchWithRetry(
-          url,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-            signal: abortControllerRef.current?.signal,
-          },
-          retryCount,
-          retryDelay
-        );
+    try {
+      const result = await smartFetch<T>(currentUrl, abortRef.current.signal);
+      if (!mountedRef.current) return;
 
-        const json: ApiResponse<T> = await response.json();
+      setData(result);
+      setCached(currentUrl, result, cacheTTL);
+      setError(null);
+    } catch (err) {
+      if (!mountedRef.current) return;
+      if ((err as Error).name === "AbortError") return;
+      setError((err as Error).message);
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
+  }, [enabled, cacheTTL]);
 
-        if (!response.ok || !json.success) {
-          throw new Error(handleErrorResponse(response.status, json.error));
-        }
-
-        const resultData = json.data as T;
-        setCached(url, resultData);
-        
-        if (mountedRef.current) {
-          setData(resultData);
-          setError(null);
-        }
-        
-        return resultData;
-      } catch (err) {
-        if ((err as Error).name === "AbortError") return null;
-        
-        const errorMessage = (err as Error).message || "Erro ao carregar dados";
-        if (mountedRef.current) {
-          setError(errorMessage);
-        }
-        throw err;
-      } finally {
-        pendingRequests.delete(url);
-        if (mountedRef.current) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    pendingRequests.set(url, requestPromise);
-    await requestPromise;
-  }, [url, enabled, retryCount, retryDelay]);
-
-  // Initial fetch
   useEffect(() => {
     mountedRef.current = true;
     fetchData();
 
     return () => {
       mountedRef.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      abortRef.current?.abort();
     };
-  }, [fetchData]);
-
-  // Revalidate on focus
-  useEffect(() => {
-    if (!revalidateOnFocus) return;
-
-    const handleFocus = () => {
-      if (url) {
-        cache.delete(url);
-        fetchData();
-      }
-    };
-
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-  }, [revalidateOnFocus, fetchData, url]);
-
-  // Revalidate on reconnect
-  useEffect(() => {
-    if (!revalidateOnReconnect) return;
-
-    const handleOnline = () => {
-      if (url) {
-        cache.delete(url);
-        fetchData();
-      }
-    };
-
-    window.addEventListener("online", handleOnline);
-    return () => window.removeEventListener("online", handleOnline);
-  }, [revalidateOnReconnect, fetchData, url]);
-
-  // Refresh interval
-  useEffect(() => {
-    if (!refreshInterval || !url) return;
-
-    const interval = setInterval(() => {
-      cache.delete(url);
-      fetchData();
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [refreshInterval, fetchData, url]);
-
-  const mutate = useCallback((newData: T | null) => {
-    setData(newData);
-    if (url && newData) {
-      setCached(url, newData);
-    }
-  }, [url]);
+  }, [url]); // Re-fetch only when URL changes
 
   const refetch = useCallback(async () => {
-    if (url) {
-      cache.delete(url);
-      await fetchData();
+    if (urlRef.current) {
+      cache.delete(urlRef.current);
+      await fetchData(true);
     }
-  }, [url, fetchData]);
+  }, [fetchData]);
 
-  return { data, loading, error, refetch, mutate };
+  const mutateLocal = useCallback((newData: T | null) => {
+    setData(newData);
+    if (urlRef.current && newData) setCached(urlRef.current, newData, cacheTTL);
+  }, [cacheTTL]);
+
+  return { data, loading, error, refetch, mutate: mutateLocal };
 }
 
-// ============ USE API MUTATION HOOK (POST/PATCH/DELETE) ============
-export function useApiMutation<TData = unknown, TResponse = unknown>(
-  url: string,
-  method: "POST" | "PATCH" | "DELETE" = "POST"
-): UseMutationReturn<TData, TResponse> {
+// ============ USE API MUTATION — Optimized ============
+export function useApiMutation<TData = unknown, TResponse = unknown>(url: string, method: "POST" | "PATCH" | "DELETE" = "POST") {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const mutate = useCallback(
-    async (data?: TData): Promise<{ success: boolean; data?: TResponse; error?: string }> => {
+    async (body?: TData) => {
       setLoading(true);
       setError(null);
 
       try {
-        const response = await fetchWithRetry(
-          url,
-          {
-            method,
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: data ? JSON.stringify(data) : undefined,
-          },
-          2,
-          1000
-        );
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: body !== undefined ? JSON.stringify(body) : undefined,
+        });
 
-        const json: ApiResponse<TResponse> = await response.json();
+        const json: ApiResponse<TResponse> = await res.json();
 
-        if (!response.ok || !json.success) {
-          const errorMsg = handleErrorResponse(response.status, json.error);
-          setError(errorMsg);
-          return { success: false, error: errorMsg };
+        if (!res.ok || !json.success) {
+          const msg = json.error || `HTTP ${res.status}`;
+          setError(msg);
+          return { success: false as const, error: msg };
         }
 
         // Invalidate related caches
         const baseUrl = url.split("?")[0].split("/").slice(0, -1).join("/");
-        invalidateCache(baseUrl + "*");
+        if (baseUrl) invalidateCache(baseUrl + "*");
+        invalidateCache("/api/analytics*");
+        invalidateCache("/api/dashboard*");
 
-        return { success: true, data: json.data };
+        return { success: true as const, data: json.data };
       } catch (err) {
-        const errorMsg = (err as Error).message || "Erro ao processar requisição";
-        setError(errorMsg);
-        return { success: false, error: errorMsg };
+        const msg = (err as Error).message;
+        setError(msg);
+        return { success: false as const, error: msg };
       } finally {
         setLoading(false);
       }
@@ -386,113 +211,15 @@ export function useApiMutation<TData = unknown, TResponse = unknown>(
     [url, method]
   );
 
-  const reset = useCallback(() => {
-    setError(null);
-    setLoading(false);
-  }, []);
-
-  return { mutate, loading, error, reset };
-}
-
-// ============ USE API UPLOAD HOOK ============
-export function useApiUpload(url: string): UseUploadReturn {
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-
-  const upload = useCallback(
-    async (
-      file: File,
-      onProgress?: (percent: number) => void
-    ): Promise<{ success: boolean; url?: string; error?: string }> => {
-      setLoading(true);
-      setProgress(0);
-      setError(null);
-
-      try {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const xhr = new XMLHttpRequest();
-
-        const uploadPromise = new Promise<{ success: boolean; url?: string; error?: string }>(
-          (resolve, reject) => {
-            xhr.upload.addEventListener("progress", (e) => {
-              if (e.lengthComputable) {
-                const percent = Math.round((e.loaded / e.total) * 100);
-                setProgress(percent);
-                onProgress?.(percent);
-              }
-            });
-
-            xhr.addEventListener("load", () => {
-              try {
-                const response = JSON.parse(xhr.responseText);
-                if (xhr.status >= 200 && xhr.status < 300 && response.success) {
-                  resolve({ success: true, url: response.data?.url });
-                } else {
-                  const errorMsg = response.error || "Erro no upload";
-                  setError(errorMsg);
-                  resolve({ success: false, error: errorMsg });
-                }
-              } catch {
-                setError("Erro ao processar resposta");
-                resolve({ success: false, error: "Erro ao processar resposta" });
-              }
-            });
-
-            xhr.addEventListener("error", () => {
-              setError("Erro de conexão");
-              reject(new Error("Erro de conexão"));
-            });
-
-            xhr.addEventListener("abort", () => {
-              setError("Upload cancelado");
-              reject(new Error("Upload cancelado"));
-            });
-
-            xhr.open("POST", url);
-            xhr.withCredentials = true;
-            xhr.send(formData);
-          }
-        );
-
-        return await uploadPromise;
-      } catch (err) {
-        const errorMsg = (err as Error).message || "Erro no upload";
-        setError(errorMsg);
-        return { success: false, error: errorMsg };
-      } finally {
-        setLoading(false);
-      }
-    },
-    [url]
-  );
-
-  return { upload, loading, progress, error };
+  return { mutate, loading, error, reset: () => setError(null) };
 }
 
 // ============ PREFETCH ============
 export async function prefetchApi(url: string): Promise<void> {
   if (getCached(url)) return;
-
   try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-    });
-
-    if (response.ok) {
-      const json = await response.json();
-      if (json.success) {
-        setCached(url, json.data);
-      }
-    }
+    await smartFetch(url);
   } catch {
-    // Silently fail prefetch
+    // silent fail
   }
 }
-
-// ============ EXPORTS ============
-export type { ApiResponse, UseApiOptions, UseApiReturn, UseMutationReturn, UseUploadReturn };
