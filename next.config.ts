@@ -8,45 +8,53 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.unsplash.com" },
     ],
     formats: ["image/avif", "image/webp"],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    minimumCacheTTL: 3600, // Cache optimized images for 1 hour
+    deviceSizes: [640, 828, 1200, 1920],
+    imageSizes: [32, 64, 128, 256],
   },
 
-  // Performance optimizations
+  // Performance
   compress: true,
   poweredByHeader: false,
-  
-  // HTTP headers for caching
+  reactStrictMode: false, // Disable double-renders in dev
+
+  // Reduce bundle: external heavy server-only packages
+  serverExternalPackages: ["pg", "bcryptjs", "jose"],
+
+  // HTTP headers
   async headers() {
     return [
       {
-        // Cache static assets aggressively
+        // Static assets — cache forever
         source: "/:path*.(ico|png|jpg|jpeg|webp|avif|svg|woff|woff2|ttf|eot)",
         headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
         ],
       },
       {
-        // Cache CSS/JS bundles
-        source: "/:path*.(js|css)",
+        // JS/CSS bundles — cache forever (hashed filenames)
+        source: "/_next/static/:path*",
         headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
         ],
       },
       {
-        // API responses: short cache for freshness
+        // API — no cache, always fresh
         source: "/api/:path*",
         headers: [
-          {
-            key: "Cache-Control",
-            value: "no-store, must-revalidate",
-          },
+          { key: "Cache-Control", value: "no-store, must-revalidate" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
+      },
+      {
+        // Security headers for all pages
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],
       },
     ];

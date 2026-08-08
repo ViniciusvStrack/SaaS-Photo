@@ -4,8 +4,9 @@ import { clients, shoots, galleries, invoices, tasks, proposals } from "@/db/sch
 import { eq, and, count, sum, sql, gte, isNull } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { apiSuccess, apiError, getQueryParam } from "@/lib/api-utils";
+import { cached, CACHE_TTL } from "@/lib/server-cache";
 
-// GET /api/analytics - Get studio analytics
+// GET /api/analytics - Get studio analytics (cached 30s)
 export async function GET(req: NextRequest) {
   try {
     const user = await requireAuth();
@@ -13,7 +14,9 @@ export async function GET(req: NextRequest) {
       return apiError("Estúdio não encontrado", 400);
     }
 
-    const period = getQueryParam(req, "period") || "30"; // days
+    const studioId: string = user.studioId;
+    const period = getQueryParam(req, "period") || "30";
+
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - parseInt(period));
 
