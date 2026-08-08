@@ -34,11 +34,27 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; role?: User["role"] }>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+const AUTH_TIMEOUT_MS = 10000;
+
+async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+  try {
+    return await fetch(url, {
+      ...options,
+      credentials: "include",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -48,14 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: true,
   });
 
-  // Check session on mount
-  useEffect(() => {
-    checkSession();
-  }, []);
-
-  const checkSession = async () => {
+  const checkSession = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/me");
+      const res = await authFetch("/api/auth/me");
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
@@ -72,20 +83,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Session check failed, not authenticated
     }
     setState({ user: null, studio: null, isAuthenticated: false, isLoading: false });
-  };
+  }, []);
+
+  // Check session on mount without blocking the login screen indefinitely.
+  useEffect(() => {
+    const timer = window.setTimeout(() => void checkSession(), 0);
+    return () => window.clearTimeout(timer);
+  }, [checkSession]);
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await authFetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
-      const json = await res.json();
+      const json = await res.json().catch(() => null);
 
-      if (!res.ok || !json.success) {
-        return { success: false, error: json.error || "Erro ao fazer login" };
+      if (!res.ok || !json?.success) {
+        return { success: false, error: json?.error || "Não foi possível entrar. Verifique as credenciais." };
       }
 
       setState({
@@ -95,15 +112,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading: false,
       });
 
-      return { success: true };
-    } catch {
-      return { success: false, error: "Erro de conexão" };
+      return { success: true, role: json.data.user.role as User["role"] };
+    } catch (error) {
+      const timedOut = error instanceof DOMException && error.name === "AbortError";
+      return {
+        success: false,
+        error: timedOut
+          ? "O servidor demorou para responder. Verifique a conexão com o banco de dados."
+          : "Erro de conexão. Tente novamente.",
+      };
     }
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await authFetch("/api/auth/logout", { method: "POST" });
     } catch {
       // Best effort
     }

@@ -18,15 +18,21 @@ export default function LoginPage() {
   const router = useRouter();
   const { showToast } = useToast();
 
+  const redirectForRole = (role: "admin" | "photographer" | "client") => {
+    if (role === "admin") router.replace("/admin/dashboard");
+    else if (role === "client") router.replace("/client/dashboard");
+    else router.replace("/app/dashboard");
+  };
+
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
       if (user.role === "admin") {
-        router.push("/admin/dashboard");
+        router.replace("/admin/dashboard");
       } else if (user.role === "client") {
-        router.push("/client/dashboard");
+        router.replace("/client/dashboard");
       } else {
-        router.push("/app/dashboard");
+        router.replace("/app/dashboard");
       }
     }
   }, [isAuthenticated, user, router]);
@@ -39,6 +45,7 @@ export default function LoginPage() {
 
     if (result.success) {
       showToast("Login realizado com sucesso!", "success");
+      if (result.role) redirectForRole(result.role);
     } else {
       showToast(result.error || "Erro ao fazer login", "error");
       setIsLoading(false);
@@ -54,7 +61,14 @@ export default function LoginPage() {
     setEmail(credentials[type].email);
     setPassword(credentials[type].password);
     setIsLoading(true);
-    await login(credentials[type].email, credentials[type].password);
+    const result = await login(credentials[type].email, credentials[type].password);
+    if (result.success) {
+      showToast("Login de demonstração realizado!", "success");
+      redirectForRole(type);
+    } else {
+      showToast(result.error || "Não foi possível acessar a demonstração", "error");
+      setIsLoading(false);
+    }
   };
 
   return (
