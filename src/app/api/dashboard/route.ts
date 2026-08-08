@@ -4,8 +4,9 @@ import { clients, shoots, galleries, invoices, tasks, messages, notifications, p
 import { eq, and, desc, count, sum, sql, gte, isNull, asc } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { apiSuccess, apiError } from "@/lib/api-utils";
+import { cached, CACHE_TTL } from "@/lib/server-cache";
 
-// GET /api/dashboard - All-in-one dashboard data for photographer
+// GET /api/dashboard - All-in-one dashboard data for photographer (cached 10s)
 export async function GET(req: NextRequest) {
   try {
     const user = await requireAuth();

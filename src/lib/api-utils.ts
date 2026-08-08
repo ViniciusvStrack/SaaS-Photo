@@ -3,6 +3,7 @@ import { z, ZodSchema } from "zod";
 import { db } from "@/db";
 import { auditLogs } from "@/db/schema";
 import { PAGINATION } from "./constants";
+import { serverCache } from "./server-cache";
 
 // ============ RESPONSE HELPERS ============
 
@@ -194,6 +195,12 @@ export async function createAuditLog(
 // ============ ERROR HELPERS ============
 
 export function handleApiError(error: unknown): NextResponse {
+  // Handle auth errors first
+  if (error instanceof Error && error.name === "AuthError") {
+    const status = (error as Error & { status?: number }).status || 401;
+    return apiError(error.message, status);
+  }
+
   console.error("API Error:", error);
   
   if (error instanceof z.ZodError) {
@@ -211,6 +218,12 @@ export function handleApiError(error: unknown): NextResponse {
     }
     if (error.message.includes("not found")) {
       return apiError("Registro não encontrado", 404);
+    }
+    if (error.message.includes("timeout") || error.message.includes("ETIMEDOUT")) {
+      return apiError("Tempo de resposta excedido. Tente novamente.", 504);
+    }
+    if (error.message.includes("ECONNREFUSED")) {
+      return apiError("Serviço indisponível. Tente novamente em instantes.", 503);
     }
   }
   
@@ -279,4 +292,23 @@ export function requireValidId(id: string | undefined): string {
     throw new Error("ID inválido");
   }
   return id;
+}
+
+// ============ SERVER CACHE INVALIDATION ============
+
+/**
+ * Invalidate server-side cache for a studio's data.
+ * Call this after any mutation (create, update, delete).
+ */
+export function invalidateStudioCache(studioId: string): void {
+  serverCache.invalidate(`*${studioId}*`);
+  serverCache.invalidate("analytics*");
+  serverCache.invalidate("dashboard*");
+}
+
+/**
+ * Invalidate all server-side cache.
+ */
+export function invalidateAllCache(): void {
+  serverCache.clear();
 }

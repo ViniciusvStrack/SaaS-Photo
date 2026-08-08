@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { galleries, clients, photos } from "@/db/schema";
 import { eq, and, desc, asc, ilike, sql, count, isNull } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
-import { apiSuccess, apiError, apiPaginated, apiCreated, getQueryParams, createAuditLog, validateBody } from "@/lib/api-utils";
+import { apiSuccess, apiPaginated, apiCreated, getQueryParams, createAuditLog, validateBody, handleApiError } from "@/lib/api-utils";
 import { gallerySchema } from "@/lib/validations";
 import { slugify } from "@/lib/constants";
 
@@ -11,16 +11,13 @@ import { slugify } from "@/lib/constants";
 export async function GET(req: NextRequest) {
   try {
     const user = await requireAuth();
-    if (!user.studioId) {
-      return apiError("Estúdio não encontrado", 400);
-    }
+    const studioId = user.studioId!;
 
     const { page, pageSize, search, status, sortOrder } = getQueryParams(req);
     const offset = (page - 1) * pageSize;
 
-    // Build conditions
     const conditions = [
-      eq(galleries.studioId, user.studioId),
+      eq(galleries.studioId, studioId),
       isNull(galleries.deletedAt),
     ];
     
@@ -32,7 +29,6 @@ export async function GET(req: NextRequest) {
       conditions.push(eq(galleries.status, status as "draft" | "sent" | "viewed" | "selection_received" | "delivered"));
     }
 
-    // Get total count
     const [countResult] = await db
       .select({ total: count() })
       .from(galleries)
@@ -40,7 +36,6 @@ export async function GET(req: NextRequest) {
 
     const total = countResult?.total || 0;
 
-    // Get paginated data with photo count
     const data = await db
       .select({
         id: galleries.id,
@@ -64,13 +59,10 @@ export async function GET(req: NextRequest) {
       .limit(pageSize)
       .offset(offset);
 
-    // Get photo counts for each gallery
+    // Batch fetch photo counts
     const galleryIds = data.map(g => g.id);
     const photoCounts = galleryIds.length > 0 ? await db
-      .select({
-        galleryId: photos.galleryId,
-        count: count(),
-      })
+      .select({ galleryId: photos.galleryId, count: count() })
       .from(photos)
       .where(sql`${photos.galleryId} IN (${sql.join(galleryIds.map(id => sql`${id}`), sql`, `)})`)
       .groupBy(photos.galleryId) : [];
@@ -84,11 +76,7 @@ export async function GET(req: NextRequest) {
 
     return apiPaginated(dataWithPhotoCounts, total, page, pageSize);
   } catch (error) {
-    if ((error as Error).name === "AuthError") {
-      return apiError((error as Error).message, 401);
-    }
-    console.error("Error fetching galleries:", error);
-    return apiError("Erro ao buscar galerias", 500);
+    return handleApiError(error);
   }
 }
 
@@ -96,9 +84,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth();
-    if (!user.studioId) {
-      return apiError("Estúdio não encontrado", 400);
-    }
+    const studioId = user.studioId!;
 
     const validation = await validateBody(req, gallerySchema);
     if (validation.error) return validation.error;
@@ -116,15 +102,12 @@ export async function POST(req: NextRequest) {
       clientName = client?.name;
     }
 
-    // Generate unique slug
-    const baseSlug = slugify(data.name);
-    const timestamp = Date.now().toString(36);
-    const uniqueSlug = `${baseSlug}-${timestamp}`;
+    const uniqueSlug = `${slugify(data.name)}-${Date.now().toString(36)}`;
 
     const [gallery] = await db
       .insert(galleries)
       .values({
-        studioId: user.studioId,
+        studioId,
         clientId: data.clientId,
         clientName: clientName || "",
         shootId: data.shootId || null,
@@ -141,14 +124,10 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    await createAuditLog(user.userId, user.studioId, "create", "gallery", gallery.id, { name: data.name }, req);
+    await createAuditLog(user.userId, studioId, "create", "gallery", gallery.id, { name: data.name }, req);
 
     return apiCreated(gallery);
   } catch (error) {
-    if ((error as Error).name === "AuthError") {
-      return apiError((error as Error).message, 401);
-    }
-    console.error("Error creating gallery:", error);
-    return apiError("Erro ao criar galeria", 500);
+    return handleApiError(error);
   }
 }
