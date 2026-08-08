@@ -79,7 +79,7 @@ if (localAccessEmail && localAccessPassword) {
 
 function getDemoSession(email: string, password: string) {
   const demo = demoUsers[email.trim().toLowerCase()];
-  return demo && demo.password === password ? { user: demo.user, studio: demo.studio } : null;
+  return demo && demo.password === password.trim() ? { user: demo.user, studio: demo.studio } : null;
 }
 
 async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
