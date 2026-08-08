@@ -111,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedDemo) {
       try {
         const demo = JSON.parse(storedDemo) as { user: User; studio: Studio | null };
-        if (demo.user.role === "admin") installDemoAdminApi();
+        installDemoAdminApi();
         setState({ ...demo, isAuthenticated: true, isLoading: false });
         return;
       } catch {
@@ -149,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // missing database cannot delay or block access to the UI preview.
     const immediateDemo = getDemoSession(email, password);
     if (immediateDemo) {
-      if (immediateDemo.user.role === "admin") installDemoAdminApi();
+      installDemoAdminApi();
       window.sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(immediateDemo));
       setState({ ...immediateDemo, isAuthenticated: true, isLoading: false });
       return { success: true, role: immediateDemo.user.role };
@@ -166,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!res.ok || !json?.success) {
         const demo = getDemoSession(email, password);
         if (demo) {
+          installDemoAdminApi();
           window.sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(demo));
           setState({ ...demo, isAuthenticated: true, isLoading: false });
           return { success: true, role: demo.user.role };
@@ -186,6 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       const demo = getDemoSession(email, password);
       if (demo) {
+        installDemoAdminApi();
         window.sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(demo));
         setState({ ...demo, isAuthenticated: true, isLoading: false });
         return { success: true, role: demo.user.role };
