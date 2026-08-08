@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { useData } from "@/context/DataContext";
+import { useApi } from "@/hooks/useApi";
 import { CommandPalette } from "@/components/CommandPalette";
 
 const NAV_ITEMS = [
@@ -31,11 +31,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, studio: studioData, isAuthenticated, isLoading, logout } = useAuth();
-  const { notifications, messages } = useData();
+  const { data: notifications } = useApi<{ id: string; isRead: boolean }[]>("/api/notifications?pageSize=100");
+  const { data: messages } = useApi<{ id: string; isRead: boolean }[]>("/api/messages?pageSize=100");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const unreadNotifications = notifications.filter(n => !n.isRead && n.userId === user?.id).length;
-  const unreadMessages = messages.filter(m => !m.isRead && m.photographerId === user?.id).length;
+  const unreadNotifications = (notifications || []).filter(n => !n.isRead).length;
+  const unreadMessages = (messages || []).filter(m => !m.isRead).length;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

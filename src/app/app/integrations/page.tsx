@@ -2,9 +2,21 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { mockIntegrations } from "@/data/mock-data";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+
+const mockIntegrations: Array<{ id: string; name: string; description: string; icon: string; category: string; isConnected: boolean; connectedAt?: string }> = [
+  { id: "int1", name: "Google Calendar", description: "Sincronize sua agenda com o Google Calendar", icon: "calendar", category: "calendar", isConnected: true },
+  { id: "int2", name: "WhatsApp Business", description: "Envie mensagens automáticas pelo WhatsApp", icon: "message-circle", category: "messaging", isConnected: false },
+  { id: "int3", name: "Instagram", description: "Publique diretamente no Instagram", icon: "instagram", category: "social", isConnected: true },
+  { id: "int4", name: "Stripe", description: "Receba pagamentos online", icon: "credit-card", category: "payment", isConnected: false },
+  { id: "int5", name: "Mercado Pago", description: "Pagamentos via Pix e cartão", icon: "wallet", category: "payment", isConnected: true },
+  { id: "int6", name: "Google Drive", description: "Backup automático das fotos", icon: "cloud", category: "storage", isConnected: true },
+  { id: "int7", name: "Dropbox", description: "Sincronize arquivos com Dropbox", icon: "box", category: "storage", isConnected: false },
+  { id: "int8", name: "Lightroom", description: "Importe presets e fotos", icon: "aperture", category: "automation", isConnected: false },
+  { id: "int9", name: "Zapier", description: "Conecte com mais de 5000 apps", icon: "zap", category: "automation", isConnected: false },
+  { id: "int10", name: "Mailchimp", description: "Email marketing automatizado", icon: "mail", category: "messaging", isConnected: false },
+];
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
 const fadeUp = { hidden: { opacity: 0, y: 15 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
