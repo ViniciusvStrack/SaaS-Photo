@@ -1,6 +1,6 @@
 "use client";
 
-import { type SelectHTMLAttributes, forwardRef } from "react";
+import { type SelectHTMLAttributes, forwardRef, useId } from "react";
 
 interface Option {
   value: string;
@@ -16,13 +16,19 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ label, error, options, placeholder, className = "", ...props }, ref) => {
+    const generatedId = useId();
+    const selectId = props.id || generatedId;
+    const errorId = `${selectId}-error`;
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-xs text-noir-400 mb-1.5 font-medium">{label}</label>
+          <label htmlFor={selectId} className="block text-xs text-noir-400 mb-1.5 font-medium">{label}</label>
         )}
         <select
           ref={ref}
+          id={selectId}
+          aria-invalid={!!error}
+          aria-describedby={error ? errorId : undefined}
           className={`
             w-full bg-white/[0.03] border rounded-lg px-4 py-2.5 text-sm text-white 
             focus:outline-none transition-all appearance-none cursor-pointer
@@ -48,7 +54,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             </option>
           ))}
         </select>
-        {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+        {error && <p id={errorId} role="alert" className="mt-1 text-xs text-red-400">{error}</p>}
       </div>
     );
   }

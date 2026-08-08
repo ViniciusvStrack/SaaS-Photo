@@ -14,6 +14,7 @@ interface ButtonProps {
   disabled?: boolean;
   type?: "button" | "submit" | "reset";
   onClick?: () => void;
+  ariaLabel?: string;
 }
 
 const variants = {
@@ -40,6 +41,7 @@ export function Button({
   disabled,
   type = "button",
   onClick,
+  ariaLabel,
 }: ButtonProps) {
   return (
     <motion.button
@@ -48,6 +50,8 @@ export function Button({
       whileTap={{ scale: disabled || isLoading ? 1 : 0.98 }}
       disabled={disabled || isLoading}
       onClick={onClick}
+      aria-label={ariaLabel}
+      aria-busy={isLoading || undefined}
       className={`
         inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all
         disabled:opacity-50 disabled:cursor-not-allowed

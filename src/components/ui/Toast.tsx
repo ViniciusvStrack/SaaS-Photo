@@ -67,11 +67,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[100] space-y-2">
+      <div aria-live="polite" aria-atomic="false" className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 z-[100] space-y-2">
         <AnimatePresence>
           {toasts.map((toast) => (
             <motion.div
               key={toast.id}
+              role={toast.type === "error" ? "alert" : "status"}
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.95 }}
@@ -79,7 +80,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             >
               {icons[toast.type]}
               <span className="text-sm">{toast.message}</span>
-              <button onClick={() => removeToast(toast.id)} className="ml-2 opacity-60 hover:opacity-100">
+              <button aria-label="Fechar notificação" onClick={() => removeToast(toast.id)} className="ml-2 opacity-60 hover:opacity-100">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M6 18L18 6M6 6l12 12" />
                 </svg>
