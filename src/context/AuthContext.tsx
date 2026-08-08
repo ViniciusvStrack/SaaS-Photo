@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { installDemoAdminApi, uninstallDemoAdminApi } from "@/lib/demo-admin-api";
 
 interface User {
   id: string;
@@ -110,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedDemo) {
       try {
         const demo = JSON.parse(storedDemo) as { user: User; studio: Studio | null };
+        if (demo.user.role === "admin") installDemoAdminApi();
         setState({ ...demo, isAuthenticated: true, isLoading: false });
         return;
       } catch {
@@ -147,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // missing database cannot delay or block access to the UI preview.
     const immediateDemo = getDemoSession(email, password);
     if (immediateDemo) {
+      if (immediateDemo.user.role === "admin") installDemoAdminApi();
       window.sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(immediateDemo));
       setState({ ...immediateDemo, isAuthenticated: true, isLoading: false });
       return { success: true, role: immediateDemo.user.role };
@@ -177,6 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading: false,
       });
       window.sessionStorage.removeItem(DEMO_SESSION_KEY);
+      uninstallDemoAdminApi();
 
       return { success: true, role: json.data.user.role as User["role"] };
     } catch (error) {
@@ -198,6 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     window.sessionStorage.removeItem(DEMO_SESSION_KEY);
+    uninstallDemoAdminApi();
     try {
       await authFetch("/api/auth/logout", { method: "POST" });
     } catch {
