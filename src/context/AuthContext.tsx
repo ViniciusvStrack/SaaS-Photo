@@ -60,6 +60,23 @@ const demoUsers: Record<string, { password: string; user: User; studio: Studio |
   },
 };
 
+const localAccessEmail = process.env.NEXT_PUBLIC_LOCAL_ACCESS_EMAIL?.trim().toLowerCase();
+const localAccessPassword = process.env.NEXT_PUBLIC_LOCAL_ACCESS_PASSWORD;
+if (localAccessEmail && localAccessPassword) {
+  demoUsers[localAccessEmail] = {
+    password: localAccessPassword,
+    user: {
+      id: "local-owner",
+      email: localAccessEmail,
+      name: "Vinicius Strack",
+      role: "admin",
+      avatar: "VS",
+      isActive: true,
+    },
+    studio: null,
+  };
+}
+
 function getDemoSession(email: string, password: string) {
   const demo = demoUsers[email.trim().toLowerCase()];
   return demo && demo.password === password ? { user: demo.user, studio: demo.studio } : null;
@@ -126,6 +143,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkSession]);
 
   const login = useCallback(async (email: string, password: string) => {
+    // Demo/local access is intentionally client-only. Resolve it first so a
+    // missing database cannot delay or block access to the UI preview.
+    const immediateDemo = getDemoSession(email, password);
+    if (immediateDemo) {
+      window.sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(immediateDemo));
+      setState({ ...immediateDemo, isAuthenticated: true, isLoading: false });
+      return { success: true, role: immediateDemo.user.role };
+    }
     try {
       const res = await authFetch("/api/auth/login", {
         method: "POST",
