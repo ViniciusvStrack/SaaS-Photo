@@ -40,6 +40,30 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 const AUTH_TIMEOUT_MS = 10000;
+const DEMO_SESSION_KEY = "noirframe_demo_session";
+
+const demoUsers: Record<string, { password: string; user: User; studio: Studio | null }> = {
+  admin: {
+    password: "admin",
+    user: { id: "user-admin", email: "admin", name: "Admin NoirFrame", role: "admin", avatar: "NF", isActive: true },
+    studio: null,
+  },
+  studio: {
+    password: "studio",
+    user: { id: "user-photographer", email: "studio", name: "Ana Luísa Rodrigues", role: "photographer", avatar: "AL", studioId: "studio-1", isActive: true },
+    studio: { id: "studio-1", name: "Studio Lumière", slug: "studio-lumiere", city: "São Paulo, SP", brandColor: "#c9a96e", storageUsedMb: 46200, storageLimitMb: 204800 },
+  },
+  cliente: {
+    password: "cliente",
+    user: { id: "user-client", email: "cliente", name: "Marina Oliveira", role: "client", avatar: "MO", studioId: "studio-1", isActive: true },
+    studio: { id: "studio-1", name: "Studio Lumière", slug: "studio-lumiere", city: "São Paulo, SP", brandColor: "#c9a96e", storageUsedMb: 46200, storageLimitMb: 204800 },
+  },
+};
+
+function getDemoSession(email: string, password: string) {
+  const demo = demoUsers[email.trim().toLowerCase()];
+  return demo && demo.password === password ? { user: demo.user, studio: demo.studio } : null;
+}
 
 async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const controller = new AbortController();
@@ -65,6 +89,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const checkSession = useCallback(async () => {
+    const storedDemo = window.sessionStorage.getItem(DEMO_SESSION_KEY);
+    if (storedDemo) {
+      try {
+        const demo = JSON.parse(storedDemo) as { user: User; studio: Studio | null };
+        setState({ ...demo, isAuthenticated: true, isLoading: false });
+        return;
+      } catch {
+        window.sessionStorage.removeItem(DEMO_SESSION_KEY);
+      }
+    }
     try {
       const res = await authFetch("/api/auth/me");
       if (res.ok) {
@@ -102,6 +136,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const json = await res.json().catch(() => null);
 
       if (!res.ok || !json?.success) {
+        const demo = getDemoSession(email, password);
+        if (demo) {
+          window.sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(demo));
+          setState({ ...demo, isAuthenticated: true, isLoading: false });
+          return { success: true, role: demo.user.role };
+        }
         return { success: false, error: json?.error || "Não foi possível entrar. Verifique as credenciais." };
       }
 
@@ -111,9 +151,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: true,
         isLoading: false,
       });
+      window.sessionStorage.removeItem(DEMO_SESSION_KEY);
 
       return { success: true, role: json.data.user.role as User["role"] };
     } catch (error) {
+      const demo = getDemoSession(email, password);
+      if (demo) {
+        window.sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(demo));
+        setState({ ...demo, isAuthenticated: true, isLoading: false });
+        return { success: true, role: demo.user.role };
+      }
       const timedOut = error instanceof DOMException && error.name === "AbortError";
       return {
         success: false,
@@ -125,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    window.sessionStorage.removeItem(DEMO_SESSION_KEY);
     try {
       await authFetch("/api/auth/logout", { method: "POST" });
     } catch {
