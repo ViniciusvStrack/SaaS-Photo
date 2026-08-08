@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
-import { shoots, shootChecklist, auditLogs } from "@/db/schema";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { shoots, shootChecklist } from "@/db/schema";
+import { eq, and, isNull, desc, asc, ilike, count, gte, lte } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
-import { apiSuccess, handleApiError } from "@/lib/api";
+import { apiSuccess, apiError, apiPaginated, getQueryParams, getQueryParam, createAuditLog, handleApiError } from "@/lib/api-utils";
 
 const createShootSchema = z.object({
   clientId: z.string().optional(),
@@ -27,11 +27,17 @@ const createShootSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await requireAuth();
-    const url = new URL(req.url);
-    const status = url.searchParams.get("status");
+    const studioId = session.studioId;
+    if (!studioId) {
+      return apiError("Estúdio não encontrado", 400);
+    }
+
+    const { page, pageSize, search, status, sortOrder, startDate, endDate } = getQueryParams(req);
+    const offset = (page - 1) * pageSize;
+    const clientId = getQueryParam(req, "clientId");
 
     const conditions = [
-      eq(shoots.studioId, session.studioId || ""),
+      eq(shoots.studioId, studioId),
       isNull(shoots.deletedAt),
     ];
 
@@ -39,11 +45,38 @@ export async function GET(req: NextRequest) {
       conditions.push(eq(shoots.status, status as "lead" | "confirmed" | "photographed" | "editing" | "delivered" | "paid" | "cancelled"));
     }
 
-    const results = await db.select().from(shoots)
-      .where(and(...conditions))
-      .orderBy(desc(shoots.date));
+    if (search) {
+      conditions.push(ilike(shoots.name, `%${search}%`));
+    }
 
-    return apiSuccess(results);
+    if (clientId) {
+      conditions.push(eq(shoots.clientId, clientId));
+    }
+
+    if (startDate) {
+      conditions.push(gte(shoots.date, startDate));
+    }
+
+    if (endDate) {
+      conditions.push(lte(shoots.date, endDate));
+    }
+
+    // Count
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(shoots)
+      .where(and(...conditions));
+
+    // Data with pagination
+    const results = await db
+      .select()
+      .from(shoots)
+      .where(and(...conditions))
+      .orderBy(sortOrder === "asc" ? asc(shoots.date) : desc(shoots.date))
+      .limit(pageSize)
+      .offset(offset);
+
+    return apiPaginated(results, countResult?.total || 0, page, pageSize);
   } catch (error) {
     return handleApiError(error);
   }
@@ -52,11 +85,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await requireAuth();
+    const studioId = session.studioId;
+    if (!studioId) {
+      return apiError("Estúdio não encontrado", 400);
+    }
+
     const body = await req.json();
     const data = createShootSchema.parse(body);
 
     const [shoot] = await db.insert(shoots).values({
-      studioId: session.studioId || "",
+      studioId,
       clientId: data.clientId || null,
       clientName: data.clientName || null,
       name: data.name,
@@ -85,16 +123,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await db.insert(auditLogs).values({
-      userId: session.userId,
-      studioId: session.studioId,
-      action: "shoot.created",
-      entity: "shoot",
-      entityId: shoot.id,
-      metadata: { name: data.name },
-    });
+    await createAuditLog(session.userId, studioId, "create", "shoot", shoot.id, { name: data.name }, req);
 
-    return apiSuccess(shoot, 201);
+    return apiSuccess(shoot);
   } catch (error) {
     return handleApiError(error);
   }

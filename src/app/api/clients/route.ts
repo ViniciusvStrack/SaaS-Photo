@@ -5,6 +5,7 @@ import { clients } from "@/db/schema";
 import { eq, and, isNull, ilike, desc, or } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { apiSuccess, apiError, handleApiError } from "@/lib/api";
+import { createAuditLog } from "@/lib/api-utils";
 
 const createClientSchema = z.object({
   name: z.string().min(1, "Nome obrigatório"),
@@ -95,6 +96,8 @@ export async function POST(req: NextRequest) {
       instagram: data.instagram || null,
       referralSource: data.referralSource || null,
     }).returning();
+
+    await createAuditLog(session.userId, session.studioId || "", "create", "client", client.id, { name: data.name }, req);
 
     return apiSuccess(client);
   } catch (error) {
