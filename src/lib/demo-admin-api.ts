@@ -123,3 +123,9 @@ export function uninstallDemoAdminApi() {
   if (typeof window !== "undefined" && originalFetch) window.fetch = originalFetch;
   originalFetch = null;
 }
+
+const demoUserIds = new Set(["user-admin", "user-photographer", "user-client", "local-owner"]);
+
+export function ensureDemoApiForUser(userId?: string | null) {
+  if (userId && demoUserIds.has(userId)) installDemoAdminApi();
+}
