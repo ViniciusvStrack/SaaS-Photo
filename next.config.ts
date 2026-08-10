@@ -32,13 +32,6 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // JS/CSS bundles — cache forever (hashed filenames)
-        source: "/_next/static/:path*",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-        ],
-      },
-      {
         // API — no cache, always fresh
         source: "/api/:path*",
         headers: [

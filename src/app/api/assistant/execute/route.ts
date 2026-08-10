@@ -28,7 +28,12 @@ export async function POST(req: NextRequest) {
 
     const results: { type: string; success: boolean; id?: string; error?: string }[] = [];
 
-    for (const action of actions) {
+    // Dependencies must be created first so the shoot and invoice can resolve
+    // the client id in the same confirmed execution.
+    const actionOrder = { create_client: 0, create_shoot: 1, create_invoice: 2, create_task: 3 } as const;
+    const orderedActions = [...actions].sort((a, b) => actionOrder[a.type] - actionOrder[b.type]);
+
+    for (const action of orderedActions) {
       try {
         switch (action.type) {
           case "create_client": {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 
 // ============ TYPES ============
 interface ApiResponse<T> {
@@ -36,6 +37,13 @@ const cache = new Map<string, { data: unknown; expiresAt: number }>();
 const inflight = new Map<string, Promise<unknown>>();
 
 const DEFAULT_TTL = 60000; // 1 min default cache
+
+class UnauthorizedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UnauthorizedError";
+  }
+}
 
 export function getCached<T>(key: string): T | null {
   const entry = cache.get(key);
@@ -77,9 +85,7 @@ async function smartFetch<T>(url: string, signal?: AbortSignal): Promise<T> {
 
       if (!res.ok || !json.success) {
         if (res.status === 401) {
-          if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
-            window.location.href = "/login?expired=1";
-          }
+          throw new UnauthorizedError(json.error || "Sessão expirada");
         }
         throw new Error(json.error || `HTTP ${res.status}`);
       }
@@ -96,17 +102,16 @@ async function smartFetch<T>(url: string, signal?: AbortSignal): Promise<T> {
 
 // ============ USE API HOOK (GET) — Optimized ============
 export function useApi<T>(url: string | null, options?: ApiOptions): UseApiReturn<T> {
+  const router = useRouter();
   const { enabled = true, cacheTTL = DEFAULT_TTL } = options || {};
   const [data, setData] = useState<T | null>(() => (url ? getCached<T>(url) : null));
   const [loading, setLoading] = useState(!data && enabled && !!url);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | undefined>(undefined);
   const mountedRef = useRef(true);
-  const urlRef = useRef(url);
-  urlRef.current = url;
 
   const fetchData = useCallback(async (skipCache = false) => {
-    const currentUrl = urlRef.current;
+    const currentUrl = url;
     if (!currentUrl || !enabled) return;
 
     // Check cache
@@ -136,33 +141,37 @@ export function useApi<T>(url: string | null, options?: ApiOptions): UseApiRetur
     } catch (err) {
       if (!mountedRef.current) return;
       if ((err as Error).name === "AbortError") return;
+      if (err instanceof UnauthorizedError) {
+        router.replace("/login?expired=1");
+      }
       setError((err as Error).message);
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [enabled, cacheTTL]);
+  }, [url, enabled, cacheTTL, router]);
 
   useEffect(() => {
     mountedRef.current = true;
-    fetchData();
+    const timer = window.setTimeout(() => void fetchData(), 0);
 
     return () => {
+      window.clearTimeout(timer);
       mountedRef.current = false;
       abortRef.current?.abort();
     };
-  }, [url]); // Re-fetch only when URL changes
+  }, [fetchData]);
 
   const refetch = useCallback(async () => {
-    if (urlRef.current) {
-      cache.delete(urlRef.current);
+    if (url) {
+      cache.delete(url);
       await fetchData(true);
     }
-  }, [fetchData]);
+  }, [url, fetchData]);
 
   const mutateLocal = useCallback((newData: T | null) => {
     setData(newData);
-    if (urlRef.current && newData) setCached(urlRef.current, newData, cacheTTL);
-  }, [cacheTTL]);
+    if (url && newData) setCached(url, newData, cacheTTL);
+  }, [url, cacheTTL]);
 
   return { data, loading, error, refetch, mutate: mutateLocal };
 }

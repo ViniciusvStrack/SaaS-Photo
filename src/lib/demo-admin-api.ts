@@ -1,3 +1,5 @@
+import { clearConversation, processMessage } from "@/lib/ai/conversation-engine";
+
 const now = new Date();
 const month = (offset: number) => {
   const date = new Date(now.getFullYear(), now.getMonth() + offset, 1);
@@ -112,6 +114,38 @@ export function installDemoAdminApi() {
     if (url.pathname === "/api/client/proposals") return response(proposals);
     if (url.pathname === "/api/client/contracts") return response(contracts);
     if (url.pathname === "/api/assistant/parse") return response({ summary: "Solicitação analisada no modo demonstração.", confidence: 0.94, suggestedActions: [], warnings: [], missingFields: [] });
+    if (url.pathname === "/api/assistant/conversation" && init?.method === "POST") {
+      const body = init.body ? JSON.parse(String(init.body)) as { text?: string; action?: string } : {};
+      if (body.action === "clear") {
+        clearConversation("demo-session");
+        return response({ message: "Conversa limpa!", cleared: true });
+      }
+      if (!body.text?.trim()) {
+        return Promise.resolve(new Response(JSON.stringify({ success: false, error: "Texto obrigatório" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }));
+      }
+      const result = processMessage("demo-session", body.text);
+      return response({
+        message: result.message,
+        action: result.action,
+        event: result.state.event,
+        step: result.state.step,
+        suggestedActions: result.suggestedActions || [],
+        historyLength: result.state.history.length,
+        confidence: result.state.event.confidence,
+      });
+    }
+    if (url.pathname === "/api/assistant/execute" && init?.method === "POST") {
+      const body = init.body ? JSON.parse(String(init.body)) as { actions?: unknown[] } : {};
+      const total = body.actions?.length || 0;
+      clearConversation("demo-session");
+      return response({
+        results: (body.actions || []).map((_, index) => ({ type: "demo", success: true, id: `demo-ai-${index + 1}` })),
+        summary: { total, success: total, failed: 0, message: `✅ ${total} ${total === 1 ? "ação executada" : "ações executadas"} no modo demonstração!` },
+      });
+    }
 
     // Mutations stay interactive in demo mode without reaching an unavailable backend.
     if (init?.method && init.method !== "GET") return response({ id: `demo-${Date.now()}`, updated: true });

@@ -133,6 +133,15 @@ function mergeEvents(existing: ExtractedEvent, update: ExtractedEvent): Extracte
     packageName: update.packageName || existing.packageName,
     confidence: Math.max(update.confidence, existing.confidence),
     warnings: [...new Set([...existing.warnings, ...update.warnings])],
+    ambiguities: [...new Set([
+      ...existing.ambiguities.filter(item => {
+        if (item.includes("mes da data") && update.date) return false;
+        if (item.includes("mais de um evento") && update.clientName && update.date && update.eventType && update.ambiguities.length === 0) return false;
+        return true;
+      }),
+      ...update.ambiguities,
+    ])],
+    extractionMode: update.extractionMode,
     missingCritical: update.missingCritical.filter(f => {
       // Remove from missing if now present in merged
       const merged = { ...existing, ...update };
@@ -348,6 +357,15 @@ export function processMessage(userId: string, userText: string): ConversationRe
     state.history.push({ role: "assistant", content: response, timestamp: now });
     conversations.set(userId, state);
     return { message: response, state, action: "continue" };
+  }
+
+  // Ambiguous information must never be guessed before persistence.
+  if (state.event.ambiguities.length > 0) {
+    const response = `Antes de continuar, preciso esclarecer:\n\n${state.event.ambiguities.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n\nEnvie a informacao corrigida para eu atualizar o resumo.`;
+    state.step = "collecting";
+    state.history.push({ role: "assistant", content: response, timestamp: now });
+    conversations.set(userId, state);
+    return { message: response, state, action: "ask_missing" };
   }
 
   // If missing critical fields, ask

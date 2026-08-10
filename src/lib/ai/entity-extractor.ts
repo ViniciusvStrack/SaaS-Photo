@@ -19,6 +19,8 @@ export interface ExtractedEvent {
   confidence: number;
   warnings: string[];
   missingCritical: string[];
+  ambiguities: string[];
+  extractionMode: "rules" | "llm";
 }
 
 // ====== CURRENCY PARSER ======
@@ -151,16 +153,7 @@ function parseDate(text: string): { value: string; raw: string; confidence: numb
     }
   }
 
-  // "dia 15" (without month — assume current/next month)
-  const dayOnly = text.match(/dia\s+(\d{1,2})\b/i);
-  if (dayOnly) {
-    const day = parseInt(dayOnly[1]);
-    let d = new Date(currentYear, today.getMonth(), day);
-    if (d < today) {
-      d = new Date(currentYear, today.getMonth() + 1, day);
-    }
-    return { value: d.toISOString().split("T")[0], raw: dayOnly[0], confidence: 0.6 };
-  }
+  // A day without month stays unresolved; guessing can create a wrong booking.
 
   return null;
 }
@@ -199,7 +192,7 @@ function parseClientName(text: string): string | null {
   
   // Pattern: "[Name] marcou" / "ensaio da [Name]" / "casamento do [Name]" / "cliente [Name]"
   const patterns = [
-    /\b([A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+(?:\s+(?:&|e)\s+[A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+)?(?:\s+[A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+)*)\s+(?:marcou|agendou|quer|pediu|confirmou)/,
+    /\b([A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+(?:\s+(?:&|e)\s+[A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+)?(?:\s+[A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+)*)\s+(?:marcou|agendou|quer|pediu|confirmou|pagou)/,
     /(?:casamento|ensaio|sessão|aniversário|evento|batizado|formatura|newborn)\s+(?:d[oae]s?|para)\s+([A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+(?:\s+(?:&|e)\s+[A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+)?(?:\s+[A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+)*)/i,
     /cliente\s+([A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+(?:\s+(?:&|e)\s+[A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+)?(?:\s+[A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+)*)/i,
     /(?:da|do|para|com)\s+([A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+(?:\s+(?:&|e)\s+[A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+)?(?:\s+[A-ZÀ-Ú][a-záàâãéèêíïóôõöúçñ]+)*)/,
@@ -364,6 +357,7 @@ function parsePackage(text: string): string | null {
 export function extractEventFromText(text: string): ExtractedEvent {
   const warnings: string[] = [];
   const missingCritical: string[] = [];
+  const ambiguities: string[] = [];
 
   // Extract all entities
   const clientName = parseClientName(text);
@@ -371,8 +365,11 @@ export function extractEventFromText(text: string): ExtractedEvent {
   const dateResult = parseDate(text);
   const timeResult = parseTime(text);
   const location = parseLocation(text);
-  const totalValue = parseCurrency(text);
+  const parsedValue = parseCurrency(text);
   const paymentInfo = parsePaymentInfo(text);
+  const mentionsPayment = /pagou|pago|pagamento|sinal|entrada|adiantou/i.test(text);
+  const mentionsTotal = /valor\s+total|total\s+(?:de|do)|contrato\s+(?:de|por)|fechou\s+(?:em|por)|orcamento\s+(?:de|por)/i.test(text.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+  const totalValue = mentionsPayment && !mentionsTotal ? null : parsedValue;
   const guestCount = parseGuestCount(text);
   const eventLevel = parseEventLevel(text);
   const notes = parseNotes(text);
@@ -398,12 +395,20 @@ export function extractEventFromText(text: string): ExtractedEvent {
   if (!dateResult) missingCritical.push("Data do evento");
   if (!eventType) missingCritical.push("Tipo de evento");
 
+  if (/\bdia\s+\d{1,2}\b/i.test(text) && !/\d{1,2}\/\d{1,2}|\d{1,2}\s+de\s+\w+/i.test(text)) {
+    ambiguities.push("O mes da data nao foi informado");
+  }
+
+  const dateMentions = text.match(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g) || [];
+  if (dateMentions.length > 1 || /\b(?:dois|duas)\s+eventos\b|;|\be\s+tambem\b/i.test(text.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) {
+    ambiguities.push("Parece haver mais de um evento no mesmo comando; envie um evento por vez");
+  }
+
   // Validate extracted data
   if (dateResult) {
-    const eventDate = new Date(dateResult.value);
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (eventDate < today) {
+    const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    if (dateResult.value < localToday) {
       warnings.push(`⚠️ A data ${dateResult.raw} parece estar no passado`);
     }
     if (dateResult.confidence < 0.7) {
@@ -439,6 +444,10 @@ export function extractEventFromText(text: string): ExtractedEvent {
     }
   }
 
+  if (paidValue !== null && totalValue === null) {
+    warnings.push("O valor pago foi identificado, mas falta o valor total para calcular o saldo");
+  }
+
   return {
     clientName,
     eventType,
@@ -457,5 +466,7 @@ export function extractEventFromText(text: string): ExtractedEvent {
     confidence,
     warnings,
     missingCritical,
+    ambiguities,
+    extractionMode: "rules",
   };
 }

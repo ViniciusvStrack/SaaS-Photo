@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const PHOTO_TYPES = ["casamento", "retrato", "produto", "moda", "eventos", "corporativo", "newborn", "lifestyle", "outro"];
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({ name: "", email: "", password: "", studio: "", photoType: "", city: "", instagram: "", style: "" });
 
@@ -76,7 +78,7 @@ export default function RegisterPage() {
             key="step2"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            onSubmit={(e) => { e.preventDefault(); window.location.href = "/app/dashboard"; }}
+            onSubmit={(e) => { e.preventDefault(); router.push("/app/dashboard"); }}
             className="space-y-4"
           >
             <div>

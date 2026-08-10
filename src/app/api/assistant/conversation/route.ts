@@ -1,7 +1,6 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAuth } from "@/lib/auth";
-import { apiSuccess, handleApiError } from "@/lib/api-utils";
+import { AuthError, requireAuth } from "@/lib/auth";
 import { processMessage, getConversation, clearConversation } from "@/lib/ai/conversation-engine";
 
 const messageSchema = z.object({
@@ -11,6 +10,21 @@ const messageSchema = z.object({
 const actionSchema = z.object({
   action: z.enum(["clear", "status"]),
 });
+
+function success<T>(data: T) {
+  return NextResponse.json({ success: true, data });
+}
+
+function routeError(error: unknown) {
+  if (error instanceof AuthError) {
+    return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+  }
+  if (error instanceof z.ZodError) {
+    return NextResponse.json({ success: false, error: error.issues[0]?.message || "Dados inválidos" }, { status: 400 });
+  }
+  console.error("Assistant conversation error:", error);
+  return NextResponse.json({ success: false, error: "Não foi possível processar a conversa" }, { status: 500 });
+}
 
 // POST /api/assistant/conversation - Process a message in conversation
 export async function POST(req: NextRequest) {
@@ -23,11 +37,11 @@ export async function POST(req: NextRequest) {
       const { action } = actionSchema.parse(body);
       if (action === "clear") {
         clearConversation(user.userId);
-        return apiSuccess({ message: "Conversa limpa!", cleared: true });
+        return success({ message: "Conversa limpa!", cleared: true });
       }
       if (action === "status") {
         const state = getConversation(user.userId);
-        return apiSuccess({
+        return success({
           hasActiveConversation: !!state,
           step: state?.step || null,
           event: state?.event || null,
@@ -40,7 +54,7 @@ export async function POST(req: NextRequest) {
     const { text } = messageSchema.parse(body);
     const result = processMessage(user.userId, text);
 
-    return apiSuccess({
+    return success({
       message: result.message,
       action: result.action,
       event: result.state.event,
@@ -50,7 +64,7 @@ export async function POST(req: NextRequest) {
       confidence: result.state.event.confidence,
     });
   } catch (error) {
-    return handleApiError(error);
+    return routeError(error);
   }
 }
 
@@ -61,7 +75,7 @@ export async function GET(req: NextRequest) {
     const state = getConversation(user.userId);
 
     if (!state) {
-      return apiSuccess({
+      return success({
         hasActiveConversation: false,
         step: null,
         event: null,
@@ -69,13 +83,13 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return apiSuccess({
+    return success({
       hasActiveConversation: true,
       step: state.step,
       event: state.event,
       history: state.history,
     });
   } catch (error) {
-    return handleApiError(error);
+    return routeError(error);
   }
 }

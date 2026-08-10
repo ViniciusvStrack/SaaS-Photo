@@ -47,32 +47,33 @@ export function CommandPalette() {
       )
     : commands;
 
+  const openPalette = useCallback(() => {
+    setSearch("");
+    setSelectedIndex(0);
+    setIsOpen(true);
+    window.setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
-      setIsOpen(prev => !prev);
+      if (isOpen) setIsOpen(false);
+      else openPalette();
     }
     if (e.key === "Escape") {
       setIsOpen(false);
     }
-  }, []);
+  }, [isOpen, openPalette]);
 
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  useEffect(() => {
-    if (isOpen) {
-      setSearch("");
-      setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
     setSelectedIndex(0);
-  }, [search]);
+  };
 
   const handleSelect = (command: Command) => {
     command.action();
@@ -97,7 +98,7 @@ export function CommandPalette() {
     <>
       {/* Trigger button for topbar */}
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={openPalette}
         className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border border-white/10 rounded-lg text-xs text-noir-500 hover:text-white hover:border-white/20 transition-all"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -134,7 +135,7 @@ export function CommandPalette() {
                   <input
                     ref={inputRef}
                     value={search}
-                    onChange={e => setSearch(e.target.value)}
+                    onChange={e => handleSearchChange(e.target.value)}
                     onKeyDown={handleInputKeyDown}
                     placeholder="Buscar ou executar comando..."
                     className="flex-1 bg-transparent py-4 text-sm text-white placeholder:text-noir-500 focus:outline-none"
