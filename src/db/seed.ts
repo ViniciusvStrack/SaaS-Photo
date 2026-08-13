@@ -64,8 +64,8 @@ async function seed() {
     website: "https://studiolumiere.com.br",
     bio: "Fotógrafa apaixonada por capturar momentos autênticos e criar memórias que duram para sempre.",
     brandColor: "#c9a96e",
-    planId: "studio",
-    storageLimitMb: 204800,
+    planId: "completo",
+    storageLimitMb: 1024000,
     storageUsedMb: 46200,
   }).returning();
 

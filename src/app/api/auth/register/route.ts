@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
       name: finalStudioName,
       slug: studioSlug,
       brandColor: "#c9a96e",
-      planId: "starter",
-      storageLimitMb: 10240, // 10GB starter
+      planId: "completo",
+      storageLimitMb: 1024000, // 1TB plano completo
       storageUsedMb: 0,
     }).returning();
 

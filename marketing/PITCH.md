@@ -23,15 +23,12 @@ Fotógrafos profissionais gastam **40% do tempo** em tarefas administrativas: pl
 
 ## Modelo de Negócio
 
-SaaS com assinatura mensal:
-- **Starter**: R$ 49/mês
-- **Professional**: R$ 99/mês (mais popular)
-- **Studio**: R$ 179/mês
-- **Agency**: R$ 349/mês
+SaaS com assinatura mensal — **preço único com acesso completo**:
+- **Completo**: R$ 37,90/mês (tudo incluso, sem limites) ou R$ 379/ano (2 meses grátis)
 
 ## Métricas-Alvo
 
 - **TAM**: 500.000 fotógrafos profissionais no Brasil
-- **Ticket médio**: R$ 120/mês
+- **Ticket médio**: R$ 37,90/mês
 - **Churn-alvo**: <5%
 - **Payback**: <3 meses

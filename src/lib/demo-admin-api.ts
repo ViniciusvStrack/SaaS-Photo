@@ -31,8 +31,8 @@ const users = [
 ];
 
 const studios = [
-  { id: "studio-1", name: "Studio Lumière", slug: "studio-lumiere", city: "São Paulo, SP", planId: "pro", storageUsedMb: 46200, storageLimitMb: 204800, createdAt: "2026-01-10T10:00:00Z" },
-  { id: "studio-2", name: "Olhar Autoral", slug: "olhar-autoral", city: "Curitiba, PR", planId: "starter", storageUsedMb: 12800, storageLimitMb: 51200, createdAt: "2026-03-22T10:00:00Z" },
+  { id: "studio-1", name: "Studio Lumière", slug: "studio-lumiere", city: "São Paulo, SP", planId: "completo", storageUsedMb: 46200, storageLimitMb: 1024000, createdAt: "2026-01-10T10:00:00Z" },
+  { id: "studio-2", name: "Olhar Autoral", slug: "olhar-autoral", city: "Curitiba, PR", planId: "completo", storageUsedMb: 12800, storageLimitMb: 1024000, createdAt: "2026-03-22T10:00:00Z" },
 ];
 
 const auditLogs = [

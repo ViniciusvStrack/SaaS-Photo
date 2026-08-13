@@ -16,7 +16,7 @@ Ana Luísa, fotógrafa de casamentos e moda editorial em São Paulo, gerenciava 
 
 ## A Solução
 
-Ana adotou o **NoirFrame Professional** (R$ 99/mês) e centralizou toda sua operação:
+Ana adotou o **NoirFrame Completo** (R$ 37,90/mês — acesso total) e centralizou toda sua operação:
 
 ### Mês 1
 - Migrou 48 clientes para o CRM

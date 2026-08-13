@@ -102,7 +102,7 @@ export const mockPhotographers: Photographer[] = [
     instagram: '@studiolumiere',
     website: 'studiolumiere.com.br',
     bio: 'Fotógrafa apaixonada por capturar momentos autênticos. Especialista em casamentos e moda editorial.',
-    planId: 'plan-pro',
+    planId: 'plan-completo',
     storageUsed: 45.2,
     storageLimit: 100,
     clientCount: 48,
@@ -119,7 +119,7 @@ export const mockPhotographers: Photographer[] = [
     instagram: '@mvfotografia',
     website: 'mvfotografia.com.br',
     bio: 'Capturando momentos especiais há mais de 10 anos.',
-    planId: 'plan-studio',
+    planId: 'plan-completo',
     storageUsed: 78.5,
     storageLimit: 250,
     clientCount: 120,
@@ -135,7 +135,7 @@ export const mockPhotographers: Photographer[] = [
     city: 'Belo Horizonte, MG',
     instagram: '@juliamendesphoto',
     bio: 'Especialista em fotografia de família e newborn.',
-    planId: 'plan-starter',
+    planId: 'plan-completo',
     storageUsed: 12.3,
     storageLimit: 25,
     clientCount: 25,
@@ -366,12 +366,7 @@ export const mockAutomations: Automation[] = [
 
 // Subscription Plans
 export const mockPlans: SubscriptionPlan[] = [
-  { id: 'plan-starter', name: 'Starter', description: 'Para fotógrafos iniciando sua jornada', monthlyPrice: 49, yearlyPrice: 470, storageGB: 25, maxClients: 50, maxGalleries: 10, features: ['1 portfólio', 'Até 10 galerias', 'CRM básico', 'Blog (10 posts)', 'Agenda', 'Suporte email'], hasPortfolio: true, hasBlog: true, hasAutomations: false, hasClientPortal: false, hasPriority: false, isPopular: false, isActive: true },
-  { id: 'plan-pro', name: 'Professional', description: 'Para fotógrafos que querem crescer', monthlyPrice: 99, yearlyPrice: 950, storageGB: 100, maxClients: 200, maxGalleries: 50, features: ['Portfólio ilimitado', 'Galerias ilimitadas', 'CRM completo', 'Blog ilimitado', 'Propostas e contratos', 'Financeiro', 'Domínio personalizado', 'Suporte prioritário'], hasPortfolio: true, hasBlog: true, hasAutomations: true, hasClientPortal: true, hasPriority: true, isPopular: true, isActive: true },
-  { id: 'plan-studio', name: 'Studio', description: 'Para estúdios e equipes', monthlyPrice: 179, yearlyPrice: 1720, storageGB: 250, maxClients: 500, maxGalleries: 150, features: ['Tudo do Pro', 'Múltiplos usuários (3)', 'Relatórios avançados', 'API de integração', 'Backup automático', 'Onboarding dedicado', 'Suporte 24/7'], hasPortfolio: true, hasBlog: true, hasAutomations: true, hasClientPortal: true, hasPriority: true, isPopular: false, isActive: true },
-  { id: 'plan-agency', name: 'Agency', description: 'Para agências e grandes operações', monthlyPrice: 349, yearlyPrice: 3350, storageGB: 1000, maxClients: 2000, maxGalleries: 500, features: ['Tudo do Studio', 'Usuários ilimitados', 'Marca branca', 'SLA garantido', 'Gerente de conta', 'Treinamento equipe'], hasPortfolio: true, hasBlog: true, hasAutomations: true, hasClientPortal: true, hasPriority: true, isPopular: false, isActive: true },
-  { id: 'plan-enterprise', name: 'Enterprise', description: 'Soluções customizadas', monthlyPrice: 0, yearlyPrice: 0, storageGB: 0, maxClients: 0, maxGalleries: 0, features: ['Recursos customizados', 'Infraestrutura dedicada', 'Integrações sob medida', 'Suporte white-glove'], hasPortfolio: true, hasBlog: true, hasAutomations: true, hasClientPortal: true, hasPriority: true, isPopular: false, isActive: true },
-  { id: 'plan-free', name: 'Free Trial', description: 'Experimente por 14 dias', monthlyPrice: 0, yearlyPrice: 0, storageGB: 5, maxClients: 10, maxGalleries: 3, features: ['Recursos limitados', 'Marca d\'água NoirFrame', 'Suporte comunidade'], hasPortfolio: true, hasBlog: false, hasAutomations: false, hasClientPortal: false, hasPriority: false, isPopular: false, isActive: true },
+  { id: 'plan-completo', name: 'Completo', description: 'Acesso total a todas as funcionalidades. Sem limites.', monthlyPrice: 37.9, yearlyPrice: 379, storageGB: 1000, maxClients: -1, maxGalleries: -1, features: ['Assistente IA', 'CRM ilimitado', 'Galerias ilimitadas', 'Propostas e contratos', 'Financeiro completo', 'Blog + portfólio', 'Automações', 'Área do cliente', 'Domínio personalizado', 'Emails reais', '1 TB de armazenamento', 'Suporte prioritário'], hasPortfolio: true, hasBlog: true, hasAutomations: true, hasClientPortal: true, hasPriority: true, isPopular: true, isActive: true },
 ];
 
 // Notifications

@@ -104,10 +104,7 @@ const FEATURES = [
 ];
 
 const PLANS = [
-  { name: "Starter", price: "49", yearly: "39", desc: "Para quem está começando.", features: ["Até 50 clientes", "10 galerias", "25 GB", "Blog (10 posts)", "Agenda", "Suporte email"], popular: false },
-  { name: "Professional", price: "99", yearly: "79", desc: "Para fotógrafos que querem crescer.", features: ["200 clientes", "Galerias ilimitadas", "100 GB", "Blog ilimitado", "Propostas e contratos", "Financeiro completo", "Automações", "Área do cliente", "Domínio personalizado"], popular: true },
-  { name: "Studio", price: "179", yearly: "149", desc: "Para estúdios e equipes.", features: ["500 clientes", "250 GB", "3 usuários", "Relatórios avançados", "API de integração", "Backup automático", "Onboarding dedicado", "Suporte 24/7"], popular: false },
-  { name: "Agency", price: "349", yearly: "299", desc: "Para agências e alto volume.", features: ["Clientes ilimitados", "1 TB", "Usuários ilimitados", "Marca branca", "SLA garantido", "Gerente de conta"], popular: false },
+  { name: "Completo", price: "37,90", yearly: "31,58", desc: "Acesso total a todas as funcionalidades. Sem limites, sem surpresas.", features: ["Assistente IA (NLP)", "Agenda + CRM ilimitado", "Galerias ilimitadas com senha", "Propostas, contratos e assinatura digital", "Financeiro completo", "Blog + portfólio profissional", "Automações (lembretes, cobranças)", "Área do cliente + analytics", "Emails reais (Resend)", "Domínio personalizado", "1 TB de armazenamento", "Suporte prioritário"], popular: true },
 ];
 
 const TESTIMONIALS = [
@@ -118,7 +115,7 @@ const TESTIMONIALS = [
 
 const FAQ = [
   { q: "Preciso saber programar para usar?", a: "Não. O NoirFrame foi feito para fotógrafos. Você configura tudo visualmente, sem código." },
-  { q: "Posso usar meu próprio domínio?", a: "Sim! Nos planos Pro e acima você conecta seu domínio para portfólio e blog." },
+  { q: "Posso usar meu próprio domínio?", a: "Sim! Em todos os planos você conecta seu domínio personalizado para portfólio e blog." },
   { q: "Como funciona a entrega de fotos?", a: "Você cria uma galeria privada, faz upload e envia um link com senha. O cliente visualiza, favorita e, se permitido, baixa." },
   { q: "Posso cancelar a qualquer momento?", a: "Sim, sem multa. Cancele pelo painel de configurações quando quiser." },
   { q: "O que é o Assistente Noir?", a: "É um assistente inteligente que interpreta comandos em linguagem natural. Você escreve \"ensaio da Ana sábado 15h retrato R$ 450\" e ele cria cliente, agenda, tarefa e cobrança." },
@@ -289,20 +286,20 @@ export default function LandingPage() {
       <section id="plans" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <FadeIn className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Planos para cada <span className="text-gold">momento</span></h2>
-            <p className="text-noir-400">Comece grátis. Cresça quando quiser.</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Um plano. <span className="text-gold">Acesso completo.</span></h2>
+            <p className="text-noir-400">Todas as funcionalidades liberadas por um preço justo. Sem taxas escondidas, sem surpresas.</p>
           </FadeIn>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 max-w-2xl mx-auto gap-5">
             {PLANS.map((plan, i) => (
               <FadeIn key={plan.name} delay={i * 0.08}>
-                <motion.div whileHover={{ y: -6 }} className={`relative rounded-2xl p-6 h-full flex flex-col ${plan.popular ? "bg-gradient-to-b from-gold/10 to-transparent border-2 border-gold/30" : "bg-white/[0.02] border border-white/5"}`}>
-                  {plan.popular && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gold text-noir-deep text-[10px] font-bold px-4 py-1 rounded-full">MAIS POPULAR</div>}
+                <motion.div whileHover={{ y: -6 }} className={`relative rounded-2xl p-8 h-full flex flex-col ${plan.popular ? "bg-gradient-to-b from-gold/10 to-transparent border-2 border-gold/30" : "bg-white/[0.02] border border-white/5"}`}>
+                  {plan.popular && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gold text-noir-deep text-[10px] font-bold px-4 py-1 rounded-full">ACESSO COMPLETO</div>}
                   <h3 className="text-lg font-bold mb-1">{plan.name}</h3>
                   <div className="flex items-baseline gap-1 mb-1">
-                    <span className="text-3xl font-bold text-gold">R$ {plan.price}</span>
+                    <span className="text-4xl font-bold text-gold">R$ {plan.price}</span>
                     <span className="text-noir-500 text-sm">/mês</span>
                   </div>
-                  <p className="text-xs text-noir-500 mb-1">ou R$ {plan.yearly}/mês no anual</p>
+                  <p className="text-xs text-noir-500 mb-1">ou R$ {plan.yearly}/mês no plano anual (2 meses grátis)</p>
                   <p className="text-xs text-noir-400 mb-5">{plan.desc}</p>
                   <ul className="space-y-2 mb-6 flex-1">
                     {plan.features.map(f => (
@@ -311,7 +308,7 @@ export default function LandingPage() {
                       </li>
                     ))}
                   </ul>
-                  <Link href="/register" className={`w-full py-2.5 rounded-lg font-medium text-center text-sm transition-all hover:scale-[1.02] block ${plan.popular ? "bg-gold hover:bg-gold-light text-noir-deep" : "bg-white/5 hover:bg-white/10 text-white border border-white/10"}`}>
+                  <Link href="/register" className={`w-full py-3 rounded-lg font-semibold text-center text-sm transition-all hover:scale-[1.02] block ${plan.popular ? "bg-gold hover:bg-gold-light text-noir-deep" : "bg-white/5 hover:bg-white/10 text-white border border-white/10"}`}>
                     Começar com {plan.name}
                   </Link>
                 </motion.div>

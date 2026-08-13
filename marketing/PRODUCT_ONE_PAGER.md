@@ -34,10 +34,7 @@ Uma central única com agenda, CRM, galerias, propostas, contratos, financeiro, 
 
 | Plano | Preço | Destaque |
 |-------|-------|----------|
-| Starter | R$ 49/mês | Para iniciantes |
-| Professional | R$ 99/mês | Mais popular — recursos completos |
-| Studio | R$ 179/mês | Para equipes |
-| Agency | R$ 349/mês | Alto volume e marca branca |
+| Completo | R$ 37,90/mês | Acesso total a todas as funcionalidades, sem limites |
 
 ## Stack Técnica
 Next.js · TypeScript · Tailwind CSS · PostgreSQL · Drizzle ORM · JWT · Framer Motion · Zod · PWA

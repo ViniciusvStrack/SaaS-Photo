@@ -132,78 +132,35 @@ export const MESSAGE_TYPES = {
 } as const;
 
 // ============ PLANOS DO SAAS ============
+// Estratégia de preço: um único plano "Completo" por R$ 37,90/mês
+// com acesso total a todas as funcionalidades. Preço único = decisão
+// simples = mais conversão.
 export const PLANS = {
-  starter: {
-    id: "starter",
-    name: "Starter",
-    price: 79,
-    priceYearly: 790,
-    storage: 10,
-    features: [
-      "Até 5 clientes/mês",
-      "1 galeria ativa",
-      "Marca d'água básica",
-      "Suporte por email",
-    ],
-    limits: {
-      clientsPerMonth: 5,
-      activeGalleries: 1,
-      storageGb: 10,
-      teamMembers: 1,
-    },
-  },
-  professional: {
-    id: "professional",
-    name: "Professional",
-    price: 149,
-    priceYearly: 1490,
-    storage: 50,
-    features: [
-      "Clientes ilimitados",
-      "Galerias ilimitadas",
-      "Contratos digitais",
-      "Automações básicas",
-      "Suporte prioritário",
-    ],
-    limits: {
-      clientsPerMonth: -1,
-      activeGalleries: -1,
-      storageGb: 50,
-      teamMembers: 1,
-    },
-  },
-  studio: {
-    id: "studio",
-    name: "Studio",
-    price: 299,
-    priceYearly: 2990,
-    storage: 200,
-    features: [
-      "Tudo do Professional",
-      "Multi-usuário (3)",
-      "Assistente IA",
-      "Integrações",
-      "Suporte VIP",
-    ],
-    limits: {
-      clientsPerMonth: -1,
-      activeGalleries: -1,
-      storageGb: 200,
-      teamMembers: 3,
-    },
-  },
-  enterprise: {
-    id: "enterprise",
-    name: "Enterprise",
-    price: 599,
-    priceYearly: 5990,
+  completo: {
+    id: "completo",
+    name: "Completo",
+    price: 37.9,
+    priceYearly: 379, // ≈ R$ 31,58/mês (2 meses grátis)
     storage: 1000,
     features: [
-      "Tudo do Studio",
-      "Usuários ilimitados",
-      "API personalizada",
-      "White-label",
-      "Gerente de conta dedicado",
+      "Assistente IA (NLP)",
+      "Agenda com prazos e conflitos",
+      "CRM de clientes ilimitado",
+      "Galerias ilimitadas com senha",
+      "Propostas e aceite online",
+      "Contratos digitais e assinatura (LGPD)",
+      "Financeiro completo (cobranças, parcelas)",
+      "Blog com SEO",
+      "Portfólio profissional",
+      "Tarefas (kanban)",
+      "Mensagens e inbox",
+      "Automações (lembretes, cobranças)",
+      "Analytics e relatórios",
+      "Área do cliente (portal)",
+      "Segurança e audit logs",
+      "Emails reais (Resend)",
+      "Domínio personalizado",
+      "Suporte prioritário",
     ],
     limits: {
       clientsPerMonth: -1,
@@ -212,7 +169,7 @@ export const PLANS = {
       teamMembers: -1,
     },
   },
-} as const;
+};
 
 // ============ AUTOMAÇÕES ============
 export const AUTOMATION_TRIGGERS = {

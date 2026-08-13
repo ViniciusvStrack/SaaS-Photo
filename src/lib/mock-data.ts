@@ -292,9 +292,7 @@ export const FEATURES = [
 ];
 
 export const PLANS = [
-  { name: "Starter", price: "R$ 49", period: "/mês", desc: "Para fotógrafos iniciando sua jornada profissional.", features: ["1 portfólio público", "Até 5 galerias", "CRM com até 50 clientes", "Blog com até 10 posts", "Agenda básica", "Suporte por email"], highlight: false },
-  { name: "Pro", price: "R$ 99", period: "/mês", desc: "Para fotógrafos que querem crescer e profissionalizar.", features: ["Portfólio ilimitado", "Galerias ilimitadas", "CRM completo", "Blog ilimitado", "Propostas e contratos", "Controle financeiro", "Domínio personalizado", "Suporte prioritário"], highlight: true },
-  { name: "Studio", price: "R$ 179", period: "/mês", desc: "Para estúdios e fotógrafos de alto volume.", features: ["Tudo do Pro", "Múltiplos fotógrafos", "Marca branca", "API de integração", "Relatórios avançados", "Backup automático", "Onboarding dedicado", "Suporte premium 24/7"], highlight: false },
+  { name: "Completo", price: "R$ 37,90", period: "/mês", desc: "Acesso total a todas as funcionalidades. Sem limites.", features: ["Assistente IA", "CRM ilimitado", "Galerias ilimitadas", "Propostas e contratos", "Financeiro completo", "Blog + portfólio", "Automações", "Área do cliente", "Domínio personalizado", "1 TB de armazenamento", "Suporte prioritário"], highlight: true },
 ];
 
 export const TESTIMONIALS = [
