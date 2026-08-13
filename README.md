@@ -53,19 +53,41 @@ Do primeiro contato à entrega final — agenda, CRM, galerias, propostas, contr
 # Instalar dependências
 npm install
 
-# Configurar variáveis (já incluído .env)
-# DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/app_db
-# JWT_SECRET=noirframe-dev-secret-change-in-production-2025
+# Configurar variáveis (copie .env.example para .env e preencha)
+cp .env.example .env
 
-# Aplicar schema no banco
+# Aplicar schema no banco (inclui a tabela password_reset_tokens)
 npx drizzle-kit push
 
 # Seedar dados iniciais
 npx tsx src/db/seed.ts
 
+# Rodar testes
+npm test
+
 # Iniciar
 npm run dev
 ```
+
+## 📧 Emails (Resend)
+
+Os emails usam o [Resend](https://resend.com) quando `RESEND_API_KEY` está configurada. Sem a chave, o app entra em **modo dev**: os emails são logados no console (com links clicáveis) e nenhum fluxo quebra.
+
+**Para ativar o envio real:**
+
+1. Crie sua conta em [resend.com](https://resend.com) e gere uma API Key (Settings → API Keys)
+2. Adicione ao seu `.env`: `RESEND_API_KEY=re_...`
+3. **Verifique um domínio** no Resend (Domains → Add Domain) para enviar com seu próprio endereço
+4. Defina o remetente: `EMAIL_FROM=NoirFrame <contato@seu-dominio.com>`
+   - Sem domínio verificado, use `NoirFrame <onboarding@resend.dev>` (só entrega para o email da sua conta Resend)
+5. Defina `NEXT_PUBLIC_APP_URL` com a URL pública do seu app (usada nos links dos emails)
+
+**Fluxos com email real:**
+- **Redefinição de senha** — `/forgot-password` gera token seguro (hash SHA-256, expira em 1h, uso único) e envia link para `/reset-password`
+- **Galeria pronta** — ao gerar um magic link para um cliente com email cadastrado, envia o email "Suas fotos estão prontas"
+- **Lembretes de ensaio** — o cron `/api/cron/send-reminders` envia lembrete ao email do cliente (quando cadastrado) além da notificação in-app
+
+**Testes:** `npm test` (vitest) cobre tokens, templates e a camada de envio (com fetch mockado).
 
 ## 🔑 Credenciais Demo
 
@@ -157,7 +179,7 @@ A pasta `/marketing` contém materiais prontos:
 ## ⚠️ Limitações do MVP
 
 - Upload de fotos usa URLs externas (sem S3 ainda)
-- Emails e notificações são simulados
+- Emails: simulados no console sem `RESEND_API_KEY`; reais com a chave configurada (ver seção "Emails")
 - Pagamentos são mockados
 - NLP é baseado em regras (sem AI real)
 - Sem 2FA real
@@ -166,12 +188,11 @@ A pasta `/marketing` contém materiais prontos:
 ## 🔮 Próximos Passos
 
 1. Upload real com S3/R2 + thumbnails
-2. Envio de emails com Resend
-3. Pagamentos com Stripe
-4. IA real no assistente (OpenAI)
-5. App mobile (React Native)
-6. CI/CD + Docker
-7. Testes E2E com Playwright
+2. Pagamentos com Stripe
+3. IA real no assistente (OpenAI)
+4. App mobile (React Native)
+5. CI/CD + Docker
+6. Testes E2E com Playwright
 
 ---
 
