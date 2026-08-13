@@ -380,3 +380,16 @@ export const auditLogs = pgTable("audit_logs", {
   index("audit_studio_idx").on(t.studioId),
   index("audit_action_idx").on(t.action),
 ]);
+
+// ============ PASSWORD RESET TOKENS ============
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  index("password_reset_user_idx").on(t.userId),
+  index("password_reset_expires_idx").on(t.expiresAt),
+]);
