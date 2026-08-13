@@ -15,7 +15,7 @@ export type EmailTemplate =
   | "birthday"
   | "password_reset";
 
-interface TemplateVars {
+export interface TemplateVars {
   clientName?: string;
   photographerName?: string;
   studioName?: string;
@@ -240,6 +240,24 @@ export function getEmailTemplate(template: EmailTemplate, vars: TemplateVars): {
           </p>
           <p style="color:${brandColor};font-size:15px;margin-top:24px;">
             Obrigado por confiar em nós! 💛
+          </p>
+        `, vars),
+      };
+
+    case "password_reset":
+      return {
+        subject: `Redefinição de senha — ${vars.studioName}`,
+        html: baseTemplate(`
+          <h2 style="margin:0 0 16px;color:#fff;font-size:22px;">Redefinição de Senha 🔐</h2>
+          <p style="color:#aaa;font-size:15px;line-height:1.6;">
+            Olá ${vars.clientName}! Recebemos uma solicitação para redefinir a senha da sua conta ${vars.studioName}.
+          </p>
+          <p style="color:#aaa;font-size:15px;line-height:1.6;">
+            Clique no botão abaixo para criar uma nova senha:
+          </p>
+          ${vars.resetLink ? `<div style="text-align:center;margin-top:24px;">${button("Redefinir Senha", vars.resetLink, brandColor)}</div>` : ""}
+          <p style="color:#666;font-size:13px;margin-top:24px;line-height:1.6;">
+            Este link é válido por <strong>1 hora</strong>. Se você não solicitou a redefinição, ignore este email — sua senha permanecerá a mesma.
           </p>
         `, vars),
       };
