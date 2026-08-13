@@ -5,6 +5,7 @@ import { clients, galleries } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { apiSuccess, apiError, handleApiError, createAuditLog } from "@/lib/api-utils";
+import { sendEmail } from "@/lib/integrations/email-sender";
 
 const generateSchema = z.object({
   clientId: z.string().min(1, "ID do cliente é obrigatório"),
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
     const { clientId, galleryId, expiresInDays } = generateSchema.parse(body);
 
     // Verify client belongs to studio
-    const [client] = await db.select({ id: clients.id, name: clients.name })
+    const [client] = await db.select({ id: clients.id, name: clients.name, email: clients.email })
       .from(clients)
       .where(and(eq(clients.id, clientId), eq(clients.studioId, studioId), isNull(clients.deletedAt)))
       .limit(1);
@@ -76,12 +77,38 @@ export async function POST(req: NextRequest) {
       expiresInDays,
     }, req);
 
+    // Send email to the client when they have an email registered
+    let emailSent = false;
+    let emailMode: "resend" | "dev" | null = null;
+    if (client.email) {
+      try {
+        const result = await sendEmail({
+          to: client.email,
+          template: "gallery_ready",
+          vars: {
+            clientName: client.name,
+            galleryLink: magicLink,
+            customMessage: gallerySlug
+              ? "Suas fotos estão prontas para visualização!"
+              : "Seu portal de acesso está disponível!",
+          },
+        });
+        emailSent = result.sent;
+        emailMode = result.mode;
+      } catch (error) {
+        // Never break the flow — photographer can still share via WhatsApp
+        console.error("Magic link email error:", error);
+      }
+    }
+
     return apiSuccess({
       magicLink,
       token,
       expiresAt: new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString(),
       client: { id: client.id, name: client.name },
       gallerySlug,
+      emailSent,
+      emailMode,
       // Pre-formatted messages for sharing
       shareTemplates: {
         whatsapp: `Olá ${client.name}! 📸\n\nSuas fotos estão prontas! Acesse pelo link:\n${magicLink}\n\nQualquer dúvida, estou à disposição! 💛`,
