@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, passwordResetTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { apiSuccess, apiError, validateBody } from "@/lib/api-utils";
 import { forgotPasswordSchema } from "@/lib/validations";
+import { generateResetToken, hashResetToken, RESET_TOKEN_TTL_MS } from "@/lib/reset-token";
+import { sendEmail, getAppUrl } from "@/lib/integrations/email-sender";
 
 // POST /api/auth/forgot-password - Request password reset
 export async function POST(req: NextRequest) {
@@ -22,14 +24,27 @@ export async function POST(req: NextRequest) {
 
     // Always return success to prevent email enumeration
     if (user) {
-      // In production, would send email with reset link
-      // For now, just log it
-      console.log(`Password reset requested for: ${email}`);
+      try {
+        // Secure token with 1h expiry — only the hash is stored
+        const token = generateResetToken();
+        const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
 
-      // Generate a simple reset token (in production, use crypto.randomBytes)
-      const resetToken = Buffer.from(`${user.id}:${Date.now()}`).toString("base64url");
-      console.log(`Reset token (dev only): ${resetToken}`);
-      console.log(`Reset link: /reset-password?token=${resetToken}`);
+        await db.insert(passwordResetTokens).values({
+          userId: user.id,
+          tokenHash: hashResetToken(token),
+          expiresAt,
+        });
+
+        const resetLink = `${getAppUrl()}/reset-password?token=${token}`;
+        await sendEmail({
+          to: user.email,
+          template: "password_reset",
+          vars: { clientName: user.name, resetLink },
+        });
+      } catch (error) {
+        // Log but never leak to the client (anti-enumeration preserved)
+        console.error("Forgot password email error:", error);
+      }
     }
 
     return apiSuccess({
